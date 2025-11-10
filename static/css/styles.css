@@ -1,0 +1,278 @@
+/* ======= Modern Neon Glow Styling ======= */
+body {
+  font-family: "Poppins", sans-serif;
+  text-align: center;
+  background-image: url("../images/bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  color: #ffffff;
+  padding: 20px;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 1s ease-in-out;
+}
+
+/* ======= Container: Glassmorphism + Glow ======= */
+.container {
+  max-width: 850px;
+  width: 100%;
+  margin: auto;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(25px);
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0px 15px 60px rgba(0, 0, 0, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+
+/* Hover effect for floating effect */
+.container:hover {
+  transform: scale(1.05);
+  box-shadow: 0px 25px 80px rgba(255, 0, 85, 0.7);
+}
+
+/* ======= Header: Animated Gradient Neon Text ======= */
+h1 {
+  font-size: 3.5rem;
+  font-weight: bold;
+  background: linear-gradient(90deg, #ff0055, #ff7b00, #e7007f, #00f2ff);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  color: transparent;
+  margin-bottom: 20px;
+  animation: gradientText 4s infinite linear;
+  text-shadow: 0px 0px 10px rgba(255, 0, 85, 0.7);
+}
+
+/* ======= Upload & Input ======= */
+input[type="file"] {
+  width: 100%;
+  margin-top: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 12px;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+input[type="file"]:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ======= Buttons (Generate / Download) ======= */
+button {
+  margin-top: 25px;
+  padding: 15px 30px;
+  background: linear-gradient(90deg, #ff0055, #ff7b00, #e7007f, #00f2ff);
+  background-size: 300% 300%;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  box-shadow: #00f2ff;
+  animation: gradientMove 4s infinite linear;
+  position: relative;
+  overflow: hidden;
+}
+
+button:hover {
+  transform: translateY(-5px) scale(1.05);
+  box-shadow: #00f2ff;
+}
+
+button:active {
+  transform: scale(0.97);
+  box-shadow: #00f2ff;
+}
+
+/* ======= Generating State for Generate Button ======= */
+#generateBtn.generating {
+  background: linear-gradient(90deg, #4ade80, #86efac);
+  color: #ffffff;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.6);
+  opacity: 0.95;
+  position: relative;
+  transition: all 0.3s ease-in-out;
+}
+
+/* ======= Spinner Animation ======= */
+#generateBtn.generating::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+/* ======= Download Buttons (JSON & Diagram) ======= */
+#downloadJsonBtn,
+#downloadDiagramBtn {
+  margin-left: 10px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+#downloadJsonBtn {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+#downloadDiagramBtn {
+  background: linear-gradient(90deg, #ff0055, #ff0055);
+}
+
+#downloadJsonBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.7);
+}
+
+#downloadDiagramBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(255, 0, 85, 0.5);
+}
+
+/* ======= Code Output ======= */
+pre {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 22px;
+  border-radius: 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  text-align: left;
+  font-size: 1rem;
+  border-left: 6px solid #ff0055;
+  transition: transform 0.3s ease-in-out;
+}
+
+pre:hover {
+  transform: scale(1.02);
+}
+
+/* ======= Diagram Output ======= */
+#diagramOutput {
+  margin-top: 30px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transition: transform 0.3s ease-in-out, background 0.3s ease-in-out;
+  box-shadow: 0px 5px 15px rgba(255, 255, 255, 0.1);
+  max-width: 100%;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+#diagramOutput:hover {
+  transform: scale(1.02);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ======= Modal Popup (Zoom View) ======= */
+#diagramModal {
+  transition: opacity 0.3s ease;
+}
+#diagramModal.flex {
+  opacity: 1;
+}
+#diagramModal.hidden {
+  opacity: 0;
+}
+
+#modalDiagram {
+  background: rgba(0, 0, 0, 0.7);
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 25px rgba(255, 255, 255, 0.1);
+}
+
+/* ======= Close Button in Modal ======= */
+#closeModalBtn {
+  transition: all 0.3s ease;
+}
+
+#closeModalBtn:hover {
+  transform: scale(1.1);
+  background: #dc2626;
+}
+
+/* ======= Responsive Adjustments ======= */
+@media (max-width: 768px) {
+  .container {
+    padding: 25px;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+  }
+
+  #diagramOutput {
+    max-width: 90vw;
+    overflow-x: scroll;
+  }
+}
+
+/* ======= Animations ======= */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gradientText {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes gradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
