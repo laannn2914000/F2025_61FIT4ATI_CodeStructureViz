@@ -1,278 +1,314 @@
-/* ======= Modern Neon Glow Styling ======= */
+/* ======= Global Layout: Dark background + center content ======= */
 body {
-  font-family: "Poppins", sans-serif;
-  text-align: center;
-  background-image: url("../images/bg.jpg");
+  font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: white;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
-  color: #ffffff;
-  padding: 20px;
+  color: #e5e7eb;
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  animation: fadeIn 1s ease-in-out;
 }
 
-/* ======= Container: Glassmorphism + Glow ======= */
-.container {
-  max-width: 850px;
-  width: 100%;
-  margin: auto;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(25px);
-  padding: 40px;
-  border-radius: 20px;
-  box-shadow: 0px 15px 60px rgba(0, 0, 0, 0.7);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
-}
-
-/* Hover effect for floating effect */
-.container:hover {
-  transform: scale(1.05);
-  box-shadow: 0px 25px 80px rgba(255, 0, 85, 0.7);
-}
-
-/* ======= Header: Animated Gradient Neon Text ======= */
-h1 {
-  font-size: 3.5rem;
-  font-weight: bold;
-  background: linear-gradient(90deg, #ff0055, #ff7b00, #e7007f, #00f2ff);
-  background-size: 400% 400%;
-  -webkit-background-clip: text;
-  color: transparent;
-  margin-bottom: 20px;
-  animation: gradientText 4s infinite linear;
-  text-shadow: 0px 0px 10px rgba(255, 0, 85, 0.7);
-}
-
-/* ======= Upload & Input ======= */
-input[type="file"] {
-  width: 100%;
-  margin-top: 15px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 12px;
-  border-radius: 10px;
-  color: #fff;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-input[type="file"]:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-/* ======= Buttons (Generate / Download) ======= */
-button {
-  margin-top: 25px;
-  padding: 15px 30px;
-  background: linear-gradient(90deg, #ff0055, #ff7b00, #e7007f, #00f2ff);
-  background-size: 300% 300%;
-  color: white;
-  font-size: 1.1rem;
-  font-weight: bold;
-  border: none;
-  border-radius: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease-in-out;
-  box-shadow: #00f2ff;
-  animation: gradientMove 4s infinite linear;
-  position: relative;
-  overflow: hidden;
-}
-
-button:hover {
-  transform: translateY(-5px) scale(1.05);
-  box-shadow: #00f2ff;
-}
-
-button:active {
-  transform: scale(0.97);
-  box-shadow: #00f2ff;
-}
-
-/* ======= Generating State for Generate Button ======= */
-#generateBtn.generating {
-  background: linear-gradient(90deg, #4ade80, #86efac);
-  color: #ffffff;
-  cursor: not-allowed;
-  transform: none !important;
-  box-shadow: 0 0 20px rgba(74, 222, 128, 0.6);
-  opacity: 0.95;
-  position: relative;
-  transition: all 0.3s ease-in-out;
-}
-
-/* ======= Spinner Animation ======= */
-#generateBtn.generating::after {
+/* Overlay để làm tối nền, giống style DeepWiki */
+body::before {
   content: "";
-  position: absolute;
-  right: 18px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 18px;
-  height: 18px;
-  border: 3px solid rgba(255, 255, 255, 0.5);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+      circle at top left,
+      rgba(56, 189, 248, 0.12),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      rgba(248, 113, 113, 0.13),
+      transparent 55%
+    ),
+    rgba(15, 23, 42, 0.88);
+  z-index: -1;
 }
 
-@keyframes spin {
-  to {
-    transform: translateY(-50%) rotate(360deg);
-  }
+/* ======= Top Navigation Bar (giống DeepWiki) ======= */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 40px;
+  font-size: 0.9rem;
+  color: #9ca3af;
 }
 
-/* ======= Download Buttons (JSON & Diagram) ======= */
-#downloadJsonBtn,
-#downloadDiagramBtn {
-  margin-left: 10px;
-  padding: 10px 20px;
-  font-size: 1rem;
-  border-radius: 10px;
-  transition: all 0.3s ease;
+.topbar-left {
+  font-weight: 600;
+  color: #e5e7eb;
 }
 
-#downloadJsonBtn {
-  background: linear-gradient(90deg, #22c55e, #16a34a);
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-#downloadDiagramBtn {
-  background: linear-gradient(90deg, #ff0055, #ff0055);
+.topbar-link {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 999px;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-#downloadJsonBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.7);
+.topbar-link:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: #e5e7eb;
 }
 
-#downloadDiagramBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 20px rgba(255, 0, 85, 0.5);
+.topbar-pill {
+  background: linear-gradient(90deg, #0ea5e9, #22c55e);
+  color: #0b1120;
+  border-radius: 999px;
+  border: none;
+  font-weight: 600;
+  padding: 8px 16px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* ======= Code Output ======= */
-pre {
-  background: rgba(0, 0, 0, 0.6);
-  padding: 22px;
-  border-radius: 12px;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  text-align: left;
-  font-size: 1rem;
-  border-left: 6px solid #ff0055;
-  transition: transform 0.3s ease-in-out;
+.topbar-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 25px rgba(56, 189, 248, 0.65);
 }
 
-pre:hover {
-  transform: scale(1.02);
+.topbar-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 20%, #22c55e, #0ea5e9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0b1120;
+  font-size: 1.1rem;
+  font-weight: 600;
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.45);
 }
 
-/* ======= Diagram Output ======= */
-#diagramOutput {
-  margin-top: 30px;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 20px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  transition: transform 0.3s ease-in-out, background 0.3s ease-in-out;
-  box-shadow: 0px 5px 15px rgba(255, 255, 255, 0.1);
-  max-width: 100%;
-  overflow: auto;
+/* ======= Main container: like DeepWiki center content ======= */
+.main {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+  text-align: center;
+}
+
+/* Title giống câu hỏi ở ảnh */
+.main-title {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: 18px;
+  color: #e5e7eb;
+}
+
+.main-subtitle {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  margin-bottom: 32px;
+}
+
+/* ======= Search box ======= */
+.search-wrapper {
   display: flex;
   justify-content: center;
+  margin-bottom: 40px;
+}
+
+.search-box {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
   align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.85);
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  padding: 10px 18px;
+  box-shadow: 0 15px 40px rgba(15, 23, 42, 0.7);
+}
+
+.search-icon {
+  font-size: 1.2rem;
+  color: #6b7280;
+}
+
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e5e7eb;
+  font-size: 0.9rem;
+}
+
+.search-input::placeholder {
+  color: #6b7280;
+}
+
+/* ======= Repo grid ======= */
+.repo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+/* Base card style (glassmorphism + subtle glow) */
+.repo-card {
+  position: relative;
+  border-radius: 20px;
+  padding: 16px 16px 14px;
+  background: radial-gradient(
+      circle at top left,
+      rgba(96, 165, 250, 0.12),
+      transparent 55%
+    ),
+    rgba(15, 23, 42, 0.94);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease,
+    background 0.3s ease;
 }
 
-#diagramOutput:hover {
-  transform: scale(1.02);
-  background: rgba(255, 255, 255, 0.05);
+.repo-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(56, 189, 248, 0.9);
+  box-shadow: 0 22px 60px rgba(56, 189, 248, 0.3);
+  background: radial-gradient(
+      circle at top left,
+      rgba(56, 189, 248, 0.25),
+      transparent 60%
+    ),
+    rgba(15, 23, 42, 0.98);
 }
 
-/* ======= Modal Popup (Zoom View) ======= */
-#diagramModal {
-  transition: opacity 0.3s ease;
-}
-#diagramModal.flex {
-  opacity: 1;
-}
-#diagramModal.hidden {
-  opacity: 0;
-}
-
-#modalDiagram {
-  background: rgba(0, 0, 0, 0.7);
-  padding: 20px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 0 25px rgba(255, 255, 255, 0.1);
+/* Card icon circle */
+.card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: #e5e7eb;
+  margin-bottom: 10px;
 }
 
-/* ======= Close Button in Modal ======= */
-#closeModalBtn {
-  transition: all 0.3s ease;
+/* Card primary text */
+.card-title {
+  font-size: 0.98rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #e5e7eb;
 }
 
-#closeModalBtn:hover {
-  transform: scale(1.1);
-  background: #dc2626;
+.card-desc {
+  font-size: 0.8rem;
+  color: #9ca3af;
 }
 
-/* ======= Responsive Adjustments ======= */
+/* Card footer: chevron arrow + meta */
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.card-arrow {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: #e5e7eb;
+}
+
+/* ======= Special "Add repo" card ======= */
+.repo-card--add {
+  background: radial-gradient(
+      circle at top left,
+      rgba(56, 189, 248, 0.2),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      rgba(249, 115, 22, 0.2),
+      transparent 55%
+    ),
+    rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  box-shadow: 0 20px 60px rgba(56, 189, 248, 0.35);
+}
+
+.repo-card--add .card-icon {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(56, 189, 248, 0.8);
+  color: #22c55e;
+}
+
+.repo-card--add:hover {
+  border-color: rgba(56, 189, 248, 0.95);
+  box-shadow: 0 25px 75px rgba(56, 189, 248, 0.5);
+}
+
+/* ======= Small badges / labels ======= */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  color: #9ca3af;
+}
+
+/* ======= Responsive ======= */
 @media (max-width: 768px) {
-  .container {
-    padding: 25px;
+  .topbar {
+    padding: 14px 16px;
   }
 
-  h1 {
-    font-size: 2.5rem;
+  .main {
+    padding: 24px 16px 48px;
   }
 
-  #diagramOutput {
-    max-width: 90vw;
-    overflow-x: scroll;
+  .main-title {
+    font-size: 1.6rem;
   }
-}
 
-/* ======= Animations ======= */
-@keyframes fadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes gradientText {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@keyframes gradientMove {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
+  .repo-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,161 +1,528 @@
 from flask import Flask, render_template, request, jsonify
+import uuid
+from typing import Dict, List
 import requests
-import graphviz
-import re
-import time
-from config import GOOGLE_GEMINI_API_KEY
+
+from services.analysis import (
+    send_to_gemini,
+    merge_dot_graphs,
+    render_svg_from_dot,
+    review_repo_with_gemini,
+    GEMINI_API_URL,  # dùng lại URL đã khai báo trong services.analysis
+)
+from services.git_repo import clone_git_repo_and_load_files
 
 app = Flask(__name__)
 
-# === API URL của Gemini === (giữ nguyên model cũ)
-GEMINI_API_URL = (
-    f"https://generativelanguage.googleapis.com/v1beta/models/"
-    f"gemini-2.0-flash:generateContent?key={GOOGLE_GEMINI_API_KEY}"
-)
+# Lưu nhiều repo: repo_id -> analysis result
+REPOS: Dict[str, Dict] = {}
 
 
-# ======== HÀM PHỤ TRỢ ========
+# ========= ROUTES CƠ BẢN =========
 
-def extract_graphviz_code(ai_response):
-    """Tách mã Graphviz DOT từ phản hồi của AI (trong khối ```dot ... ```)."""
-    match = re.search(r"```dot\n(.*?)\n```", ai_response, re.DOTALL)
-    return match.group(1).strip() if match else ai_response.strip()
+@app.route("/")
+def home():
+    return render_template("home.html")
 
 
-def send_to_gemini(filename, code):
-    """Gửi mã nguồn của 1 file lên Gemini để sinh Graphviz DOT code."""
-    headers = {"Content-Type": "application/json"}
-    prompt = (
-        f"Convert the following {filename} code into a Graphviz DOT format diagram. "
-        "Output only valid Graphviz DOT code fenced in ```dot```.\n\n"
-        f"{code}"
+@app.route("/repo/<repo_id>")
+def repo_view(repo_id):
+    repo = REPOS.get(repo_id)
+    if not repo:
+        return render_template(
+            "repo.html",
+            repo_name="Repo not found",
+            repo_path="",
+            repo_id=repo_id,
+        )
+
+    return render_template(
+        "repo.html",
+        repo_name=repo.get("name", "Local repo"),
+        repo_path=repo.get("path", "Local folder"),
+        repo_id=repo_id,
     )
-    payload = {"contents": [{"role": "user", "parts": [{"text": prompt}]}]}
-
-    max_retries = 5
-    attempt = 0
-
-    while attempt < max_retries:
-        response = requests.post(GEMINI_API_URL, headers=headers, json=payload)
-
-        # ✅ Thành công
-        if response.status_code == 200:
-            try:
-                ai_text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
-                dot_code = extract_graphviz_code(ai_text)
-                return dot_code, None
-            except Exception as e:
-                return None, f"Error parsing AI response: {e}"
-
-        # ⚠️ Nếu bị giới hạn 429 (quota)
-        elif response.status_code == 429:
-            try:
-                data = response.json()
-                details = data["error"].get("details", [])
-                retry_after = 40  # mặc định nếu không đọc được thời gian chờ
-                for d in details:
-                    if "@type" in d and "RetryInfo" in d["@type"]:
-                        delay_str = d.get("retryDelay", "40s")
-                        retry_after = int(re.search(r"\d+", delay_str).group(0))
-                print(f"[Rate limit] Waiting {retry_after}s before retrying {filename}...")
-                time.sleep(retry_after)
-            except Exception:
-                print("[Rate limit] Waiting 40s (default)...")
-                time.sleep(40)
-            attempt += 1
-            continue
-
-        # ❌ Lỗi khác
-        else:
-            return None, f"Error {response.status_code}: {response.text}"
-
-    return None, "Max retries reached after repeated 429 errors."
 
 
-def merge_dot_graphs(dot_list):
-    """Hợp nhất nhiều Graphviz DOT code thành 1 biểu đồ lớn."""
-    merged = ["digraph G {"]
-    for dot in dot_list:
-        inner = re.search(r"\{(.*)\}", dot, re.DOTALL)
-        if inner:
-            merged.append(inner.group(1).strip())
-    merged.append("}")
-    return "\n".join(merged)
+# ========= XỬ LÝ FOLDER LOCAL (/generate) =========
 
-
-# ======== ROUTES ========
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-
-@app.route('/generate', methods=['POST'])
+@app.route("/generate", methods=["POST"])
 def generate():
-    """Nhận dữ liệu folder upload từ frontend, mỗi file xử lý riêng."""
-    data = request.get_json()
-    files = data.get("files", {})
+    """
+    Nhận folder code:
+        JSON: { files: { path: content }, repo_name?: str, repo_path?: str }
 
-    if not files:
-        return jsonify({"error": "No files uploaded"}), 400
+    Phân tích từng file, merge DOT, review repo, lưu vào REPOS[repo_id].
+    """
+    data = request.get_json() or {}
+    files = data.get("files")
+    repo_name = data.get("repo_name", "Local repo")
+    repo_path = data.get("repo_path", "Local folder")
+
+    # 1) Không có trường "files" trong request (client gửi sai format)
+    if files is None:
+        return jsonify({"error": "Không nhận được dữ liệu files từ client."}), 400
+
+    # 2) Có "files" nhưng là object rỗng -> folder rỗng
+    if isinstance(files, dict) and len(files) == 0:
+        return jsonify({"error": "Folder bạn chọn đang rỗng, không có file nào."}), 400
+
+    # Giới hạn dung lượng folder
+    total_size_bytes = sum(len(content.encode("utf-8")) for content in files.values())
+    total_kb = total_size_bytes / 1024
+    if total_kb > 100:
+        return jsonify({
+            "error": (
+                f"Folder quá lớn ({total_kb:.2f} KB). "
+                f"Vui lòng chọn folder nhỏ hơn 100KB."
+            )
+        }), 400
 
     allowed_ext = (".py", ".html", ".css", ".js")
     valid_files = {
-        name: content for name, content in files.items()
+        name: content
+        for name, content in files.items()
         if name.lower().endswith(allowed_ext)
     }
 
     if not valid_files:
-        return jsonify({"error": "No valid code files (.py, .html, .css, .js) found"}), 400
+        return jsonify({
+            "error": "No valid code files (.py, .html, .css, .js) found"
+        }), 400
 
-    dot_results = {}
-    file_jsons = {}
-    errors = {}
+    dot_results: Dict[str, str] = {}
+    file_infos: Dict[str, Dict] = {}
+    errors: Dict[str, str] = {}
 
-    # --- Gửi từng file tới Gemini ---
     for filename, code in valid_files.items():
-        dot_code, err = send_to_gemini(filename, code)
+        result, err = send_to_gemini(filename, code)
         if err:
-            file_jsons[filename] = {"error": err}
+            file_infos[filename] = {
+                "path": filename,
+                "status": "error",
+                "error": err,
+            }
             errors[filename] = err
         else:
+            dot_code = result["dot_code"]
             dot_results[filename] = dot_code
-            file_jsons[filename] = {"dot_code": dot_code, "status": "success"}
+            file_infos[filename] = {
+                "path": filename,
+                "status": "success",
+                "dot_code": dot_code,
+                "classes": result.get("classes", []),
+                "functions": result.get("functions", []),
+                "imports": result.get("imports", []),
+                "description": result.get("description", ""),
+            }
 
-    # --- Nếu không file nào thành công ---
     if not dot_results:
+        repo_id = str(uuid.uuid4())
+        REPOS[repo_id] = {
+            "files": file_infos,
+            "summary": {
+                "processed": 0,
+                "failed": len(errors),
+            },
+            "diagram_svg": None,
+            "dot_code": None,
+            "name": repo_name,
+            "path": repo_path,
+            "review": None,
+            "review_error": "All files failed to process.",
+            "source": "local",
+        }
         return jsonify({
             "error": "All files failed to process.",
-            "details": errors
+            "details": errors,
         }), 500
 
-    # --- Hợp nhất toàn bộ sơ đồ ---
     merged_dot = merge_dot_graphs(dot_results.values())
+    svg_data, graphviz_error = render_svg_from_dot(merged_dot)
 
-    try:
-        dot = graphviz.Source(merged_dot, format="svg")
-        svg_data = dot.pipe(format="svg").decode("utf-8")
+    # Review toàn repo
+    review, review_err = review_repo_with_gemini(valid_files)
 
-        # --- Trả JSON mới (theo từng file) ---
+    repo_id = str(uuid.uuid4())
+    REPOS[repo_id] = {
+        "files": file_infos,
+        "summary": {
+            "processed": len(dot_results),
+            "failed": len(errors),
+        },
+        "diagram_svg": svg_data,
+        "dot_code": merged_dot,
+        "name": repo_name,
+        "path": repo_path,
+        "review": review if review and not review_err else None,
+        "review_error": review_err or graphviz_error,
+        "source": "local",
+    }
+
+    return jsonify({
+        "repo_id": repo_id,
+        "summary": REPOS[repo_id]["summary"],
+        "has_review": bool(review and not review_err),
+        "graphviz_error": graphviz_error,
+        "repo_name": repo_name,
+        "repo_path": repo_path,
+        "source": "local",
+    })
+
+
+# ========= XỬ LÝ GIT REPO (/add_git_repo) =========
+
+@app.route("/add_git_repo", methods=["POST"])
+def add_git_repo():
+    """
+    Nhận JSON: { git_url: str }
+    Clone repo về, đọc file, rồi dùng chung logic phân tích như /generate.
+    """
+    data = request.get_json() or {}
+    git_url = data.get("git_url", "").strip()
+
+    if not git_url:
+        return jsonify({"error": "git_url is required"}), 400
+
+    files, clone_error = clone_git_repo_and_load_files(git_url)
+    if clone_error:
+        return jsonify({"error": clone_error}), 400
+
+    # Tên repo từ URL
+    repo_name = git_url.rstrip("/").split("/")[-1]
+    if repo_name.endswith(".git"):
+        repo_name = repo_name[:-4]
+    repo_path = git_url
+
+    # Giới hạn dung lượng (theo logic giống /generate)
+    total_size_bytes = sum(len(content.encode("utf-8")) for content in files.values())
+    total_kb = total_size_bytes / 1024
+    if total_kb > 100:
         return jsonify({
-            "json_response": {
-                "files": file_jsons,
-                "summary": {
-                    "processed": len(dot_results),
-                    "failed": len(errors)
-                }
+            "error": (
+                f"Git repo quá lớn ({total_kb:.2f} KB) theo giới hạn 100KB của demo."
+            )
+        }), 400
+
+    allowed_ext = (".py", ".html", ".css", ".js")
+    valid_files = {
+        name: content
+        for name, content in files.items()
+        if name.lower().endswith(allowed_ext)
+    }
+
+    if not valid_files:
+        return jsonify({
+            "error": "No valid code files (.py, .html, .css, .js) found in git repo"
+        }), 400
+
+    dot_results: Dict[str, str] = {}
+    file_infos: Dict[str, Dict] = {}
+    errors: Dict[str, str] = {}
+
+    for filename, code in valid_files.items():
+        result, err = send_to_gemini(filename, code)
+        if err:
+            file_infos[filename] = {
+                "path": filename,
+                "status": "error",
+                "error": err,
+            }
+            errors[filename] = err
+        else:
+            dot_code = result["dot_code"]
+            dot_results[filename] = dot_code
+            file_infos[filename] = {
+                "path": filename,
+                "status": "success",
+                "dot_code": dot_code,
+                "classes": result.get("classes", []),
+                "functions": result.get("functions", []),
+                "imports": result.get("imports", []),
+                "description": result.get("description", ""),
+            }
+
+    if not dot_results:
+        repo_id = str(uuid.uuid4())
+        REPOS[repo_id] = {
+            "files": file_infos,
+            "summary": {
+                "processed": 0,
+                "failed": len(errors),
             },
-            "dot_code": merged_dot,
-            "diagram": svg_data
+            "diagram_svg": None,
+            "dot_code": None,
+            "name": repo_name,
+            "path": repo_path,
+            "review": None,
+            "review_error": "All files failed to process from git repo.",
+            "source": "git",
+        }
+        return jsonify({
+            "error": "All files failed to process from git repo.",
+            "details": errors,
+        }), 500
+
+    merged_dot = merge_dot_graphs(dot_results.values())
+    svg_data, graphviz_error = render_svg_from_dot(merged_dot)
+
+    review, review_err = review_repo_with_gemini(valid_files)
+
+    repo_id = str(uuid.uuid4())
+    REPOS[repo_id] = {
+        "files": file_infos,
+        "summary": {
+            "processed": len(dot_results),
+            "failed": len(errors),
+        },
+        "diagram_svg": svg_data,
+        "dot_code": merged_dot,
+        "name": repo_name,
+        "path": repo_path,
+        "review": review if review and not review_err else None,
+        "review_error": review_err or graphviz_error,
+        "source": "git",
+    }
+
+    return jsonify({
+        "repo_id": repo_id,
+        "summary": REPOS[repo_id]["summary"],
+        "has_review": bool(review and not review_err),
+        "graphviz_error": graphviz_error,
+        "repo_name": repo_name,
+        "repo_path": repo_path,
+        "source": "git",
+    })
+
+
+# ========= AI CHAT CHO REPO – DÙNG CHUNG GEMINI_API_URL =========
+
+def chat_about_repo_with_gemini(repo: Dict, question: str, history: List[Dict]):
+    """
+    Gọi Gemini (REST) để trả lời câu hỏi về 1 repo cụ thể.
+    - repo: object REPOS[repo_id]
+    - question: câu hỏi mới của user
+    - history: [{role: "user"/"assistant", content: str}, ...]
+
+    Trả về (answer, error)
+    """
+    try:
+        context_parts = []
+
+        # 1) Review chi tiết (nếu có)
+        if repo.get("review"):
+            context_parts.append("AI review summary for this repo:\n" + str(repo["review"]))
+
+        # 2) Summary ngắn
+        summary = repo.get("summary") or {}
+        context_parts.append(
+            "Repo summary: processed {processed} files, failed {failed} files.".format(
+                processed=summary.get("processed", 0),
+                failed=summary.get("failed", 0),
+            )
+        )
+
+        # 3) Danh sách file chính
+        files_dict = repo.get("files", {})
+        file_names = list(files_dict.keys())
+        if file_names:
+            context_parts.append(
+                "Main files in this repo:\n" +
+                "\n".join(f"- {name}" for name in file_names[:50])
+            )
+
+        system_instr = (
+            "You are a senior software engineer who deeply understands this code repository. "
+            "Use the provided context about the project (review notes, summary, file list) to answer user questions. "
+            "Focus on concrete, practical suggestions for improvements: architecture, readability, testing, "
+            "performance, security, and maintainability. If something is not explicitly in the context, "
+            "say that clearly and answer using general best practices.\n\n"
+            "Repository context:\n"
+            + "\n\n".join(context_parts)
+        )
+
+        contents = []
+
+        # System context như một message user đầu tiên
+        contents.append({
+            "role": "user",
+            "parts": [{"text": system_instr}],
         })
 
+        # History
+        for turn in history:
+            text = (turn.get("content") or "").strip()
+            if not text:
+                continue
+            role = turn.get("role")
+            g_role = "user" if role == "user" else "model"
+            contents.append({
+                "role": g_role,
+                "parts": [{"text": text}],
+            })
+
+        # Câu hỏi mới
+        contents.append({
+            "role": "user",
+            "parts": [{"text": question}],
+        })
+
+        body = {
+            "contents": contents,
+            "generationConfig": {
+                "temperature": 0.4,
+                "topP": 0.9,
+                "maxOutputTokens": 1024,
+            },
+        }
+
+        resp = requests.post(GEMINI_API_URL, json=body, timeout=60)
+        if resp.status_code != 200:
+            return None, f"Gemini API error {resp.status_code}: {resp.text}"
+
+        data = resp.json()
+        candidates = data.get("candidates")
+        if not candidates:
+            return None, "No candidates returned from Gemini"
+
+        first = candidates[0]
+        content = first.get("content", {})
+        parts = content.get("parts", [])
+
+        # Gộp mọi phần text lại, nhưng luôn cast sang str để tránh lỗi type
+        answer_chunks: List[str] = []
+        for p in parts:
+            if isinstance(p, dict) and "text" in p:
+                answer_chunks.append(str(p["text"]))
+
+        answer_text = "".join(answer_chunks).strip()
+        if not answer_text:
+            # fallback: debug nhẹ
+            return None, f"Empty response text from Gemini. Raw: {data}"
+
+        return answer_text, None
+
     except Exception as e:
+        # Log chi tiết ra console
+        print("Gemini chat error:", repr(e))
+        return None, str(e)
+
+
+
+@app.route("/api/repo/<repo_id>/chat", methods=["POST"])
+def api_repo_chat(repo_id):
+    """
+    API chat AI cho 1 repo cụ thể.
+
+    Body JSON:
+    {
+      "question": "string",
+      "history": [
+        { "role": "user"|"assistant", "content": "..." },
+        ...
+      ]
+    }
+    """
+    repo = REPOS.get(repo_id)
+    if not repo:
+        return jsonify({"error": "repo not found"}), 404
+
+    data = request.get_json() or {}
+    question = (data.get("question") or "").strip()
+    history = data.get("history") or []
+
+    if not question:
+        return jsonify({"error": "Missing question"}), 400
+
+    answer, err = chat_about_repo_with_gemini(repo, question, history)
+    if err or not answer:
+        return jsonify({"error": "AI chat failed", "detail": err}), 500
+
+    return jsonify({"answer": answer})
+
+
+
+# ========= API PHỤ: structure/file/graph/review/delete =========
+
+@app.route("/api/repo/<repo_id>/structure", methods=["GET"])
+def api_structure(repo_id):
+    repo = REPOS.get(repo_id)
+    if not repo:
+        return jsonify({"error": "repo not found"}), 404
+
+    files = repo.get("files", {})
+    items = []
+    for path, info in files.items():
+        items.append({
+            "path": path,
+            "status": info.get("status", "error"),
+            "has_error": "error" in info,
+        })
+    return jsonify({
+        "files": items,
+        "summary": repo.get("summary", {}),
+    })
+
+
+@app.route("/api/repo/<repo_id>/file/<path:file_path>", methods=["GET"])
+def api_file(repo_id, file_path):
+    repo = REPOS.get(repo_id)
+    if not repo:
+        return jsonify({"error": "repo not found"}), 404
+
+    info = repo.get("files", {}).get(file_path)
+    if not info:
+        return jsonify({"error": "file not found"}), 404
+    return jsonify(info)
+
+
+@app.route("/api/repo/<repo_id>/graph", methods=["GET"])
+def api_graph(repo_id):
+    repo = REPOS.get(repo_id)
+    if not repo:
+        return jsonify({"error": "repo not found"}), 404
+
+    svg_data = repo.get("diagram_svg")
+    if not svg_data:
         return jsonify({
-            "error": f"Graphviz render error: {str(e)}", 
-            "error": f"Graphviz render error: {str(e)}",
-            "dot_code": merged_dot
-        }), 500
+            "error": "no diagram",
+            "graphviz_error": repo.get("review_error"),
+        }), 404
+    return jsonify({"diagram": svg_data})
 
 
-if __name__ == '__main__':
+@app.route("/api/repo/<repo_id>/review", methods=["GET"])
+def api_repo_review(repo_id):
+    repo = REPOS.get(repo_id)
+    if not repo:
+        return jsonify({"error": "repo not found"}), 404
+
+    review = repo.get("review")
+    review_error = repo.get("review_error")
+
+    if review is None and not review_error:
+        return jsonify({
+            "summary": "No review available.",
+            "issues": [],
+        })
+
+    if review_error and not review:
+        return jsonify({
+            "summary": "Review failed.",
+            "issues": [],
+            "error": review_error,
+        })
+
+    return jsonify(review)
+
+
+@app.route("/api/repo/<repo_id>", methods=["DELETE"])
+def api_delete_repo(repo_id):
+    if repo_id in REPOS:
+        del REPOS[repo_id]
+        return jsonify({"status": "deleted"})
+    return jsonify({"error": "repo not found"}), 404
+
+
+if __name__ == "__main__":
     app.run(debug=True)
