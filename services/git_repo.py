@@ -29,7 +29,7 @@ def load_files_from_directory(root_dir: str) -> Dict[str, str]:
 
             try:
                 size_bytes = os.path.getsize(full_path)
-                # Bỏ qua file quá lớn (200KB) để tránh nổ demo
+                # Bỏ qua file quá lớn (200KB) để tránh lỗi
                 if size_bytes > 200 * 1024:
                     continue
 

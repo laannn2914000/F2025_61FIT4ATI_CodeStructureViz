@@ -1,10 +1,18 @@
 # AI Structura
 
-AI Structura is a Python Flask-based AI application that includes diagram representation using HTML, CSS, and JavaScript.
+Code-to-Diagram Generator is a Python Flask-based AI application that includes diagram representation using HTML, CSS, and JavaScript.
 
 ## Introduction
 
-This project aims to provide an interactive platform for visualizing AI structures and processes. It leverages Flask for the backend, and HTML, CSS, and JavaScript for the frontend to create dynamic and responsive diagram representations.
+CodeStructureViz (AI-Structura) is a tool that supports learning and working with code, allowing you to:
+
+- Select an entire folder containing source code(local folder or Git URL).
+- The system uses AI + rules to analyze the code to:
+  - Identify classes, functions, modules, APIs, dependencies…
+  - Build a system structure model from the code itself.
+- Automatically generate:
+  - DOT files describing the code structure (for each file).
+  - Architecture diagrams (SVG format) showing relationships between parts of the system.
 
 ## Installation
 
@@ -13,33 +21,49 @@ This project aims to provide an interactive platform for visualizing AI structur
 - Python 3.x
 - Flask
 - HTML, CSS, and JavaScript
+- GitPython
 
 ### Setup
 
 1. Clone the repository:
-    ```bash
-    git clone 
-    cd AI-Structura
-    ```
 
-2. Create and activate a virtual environment:
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-    ```
+   ```bash
+   git clone
+   cd F2025_61FIT4ATI_CodeStructureViz
+   ```
 
-3. Install the required packages:
-    ```bash
-    pip install -r requirements.txt
-    ```
+2. Install GitPython
 
-4. Run the Flask application:
-    ```bash
-    flask run
-    ```
+   ```bash
+   pip install GitPython
+   ```
+
+3. Download Graphviz
+
+   ```
+   - Download Graphviz: https://graphviz.org/download/
+   - Install it.
+   - Add the Graphviz bin folder to the PATH (if the installer didn't do it automatically).
+   ```
+
+4. Create and activate a virtual environment:
+
+   ```bash
+   python -m venv venv
+   .\venv\Scripts\Activate.ps1
+   ```
+
+5. Install the required packages:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+6. Run the Flask application:
+   ```bash
+   flask run
+   ```
 
 ## Usage
 
-1. Open your web browser and navigate to `http://127.0.0.1:5000`.
-2. You will see the interactive AI diagram representation interface.
-3. Use the interface to visualize different AI structures and processes.
+Open your web browser and navigate to `http://127.0.0.1:5000`.
